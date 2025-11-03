@@ -1,0 +1,30 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-standard-scss"
+  ],
+  "rules": {
+    "at-rule-no-unknown": null,
+    "scss/at-rule-no-unknown": true,
+    "selector-class-pattern": null,
+    "keyframes-name-pattern": null,
+    "custom-property-pattern": null,
+    "number-max-precision": 4,
+    "declaration-block-no-duplicate-properties": true,
+    "no-descending-specificity": null,
+    "color-hex-length": "short",
+    "color-named": "never",
+    "font-family-name-quotes": "always-where-recommended",
+    "function-url-quotes": "always",
+    "selector-attribute-quotes": "always",
+    "string-quotes": "single",
+    "unit-allowed-list": ["px", "rem", "em", "%", "s", "ms", "deg", "vh", "vw"],
+    "declaration-no-important": true,
+    "selector-max-id": 0,
+    "max-nesting-depth": 4
+  },
+  "ignoreFiles": [
+    "dist/**/*",
+    "node_modules/**/*"
+  ]
+}

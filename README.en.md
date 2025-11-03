@@ -1,0 +1,293 @@
+# vite-plugin-property-paths-to-types
+
+English | [中文](./README.md)
+
+A Vite plugin that automatically generates TypeScript type definitions from JSON configuration files.
+
+## Features
+
+- 🚀 **Auto-generated Types**: Automatically generate complete TypeScript type definitions from JSON config files
+- 📁 **Multi-file Support**: Support processing multiple configuration files simultaneously
+- 🔄 **Hot Reload**: Watch configuration file changes in development mode and regenerate types automatically
+- 📝 **JSDoc Support**: Automatically generate detailed JSDoc comments
+- ⚙️ **Highly Configurable**: Support custom type names, property information, and more
+- 🛡️ **Type Safe**: Provide complete type checking and validation
+
+## Installation
+
+```bash
+npm install vite-plugin-property-paths-to-types -D
+# or
+yarn add vite-plugin-property-paths-to-types -D
+# or
+pnpm add vite-plugin-property-paths-to-types -D
+```
+
+## Quick Start
+
+### 1. Configure Vite Plugin
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import propertyPathsToTypes from 'vite-plugin-property-paths-to-types';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    propertyPathsToTypes({
+      configFiles: [
+        './src/types/app.json',
+        './src/types/api.json'
+      ],
+      outputDir: './src/types/generated',
+      watch: true
+    })
+  ]
+});
+```
+
+### 2. Create Configuration Files
+
+**src/types/app.json**
+```json
+{
+  "app": {
+    "name": "string",
+    "version": "string"
+  },
+  "database": {
+    "host": "string",
+    "port": "number",
+    "credentials": {
+      "username": "string",
+      "password": "string"
+    }
+  }
+}
+```
+
+**src/types/api.json**
+```json
+{
+  "endpoints": {
+    "users": "string",
+    "posts": "string"
+  },
+  "headers": {
+    "authorization": "string",
+    "contentType": "string"
+  }
+}
+```
+
+### 3. Use Generated Types
+
+```typescript
+// Use auto-generated types in your code
+import type { AppConfig } from './types/generated/app';
+import type { ApiConfig } from './types/generated/api';
+
+const appConfig: AppConfig = {
+  app: {
+    name: "My App",
+    version: "1.0.0"
+  },
+  database: {
+    host: "localhost",
+    port: 5432,
+    credentials: {
+      username: "admin",
+      password: "secret"
+    }
+  }
+};
+
+const apiConfig: ApiConfig = {
+  endpoints: {
+    users: "/api/users",
+    posts: "/api/posts"
+  },
+  headers: {
+    authorization: "Bearer token",
+    contentType: "application/json"
+  }
+};
+```
+
+## Configuration Options
+
+```typescript
+interface PropertyPathsPluginOptions {
+  /**
+   * Array of configuration file paths
+   * @example ['./src/types/app.json', './src/types/database.json']
+   */
+  configFiles: string[];
+  
+  /**
+   * Output directory
+   * @default './src/types/generated'
+   */
+  outputDir?: string;
+  
+  /**
+   * Whether to watch for changes in development mode
+   * @default true
+   */
+  watch?: boolean;
+  
+  /**
+   * Property information mapping for custom types and descriptions
+   */
+  propertyInfo?: Record<string, PropertyInfo>;
+  
+  /**
+   * Whether to generate JSDoc comments
+   * @default true
+   */
+  generateComments?: boolean;
+  
+  /**
+   * Custom type prefix
+   */
+  typePrefix?: string;
+  
+  /**
+   * Custom type suffix
+   */
+  typeSuffix?: string;
+  
+  /**
+   * Default property type
+   * @default 'string'
+   */
+  defaultPropertyType?: string;
+  
+  /**
+   * Root type name mapping, key is file path, value is type name
+   */
+  rootTypeNames?: Record<string, string>;
+}
+
+interface PropertyInfo {
+  type: string;
+  description?: string;
+  defaultValue?: any;
+  required?: boolean;
+}
+```
+
+## Advanced Usage
+
+### Custom Property Information
+
+```typescript
+propertyPathsToTypes({
+  configFiles: ['./src/types/app.json'],
+  propertyInfo: {
+    'app.name': {
+      type: 'string',
+      description: 'Application name',
+      defaultValue: 'My App'
+    },
+    'database.port': {
+      type: 'number',
+      description: 'Database port',
+      defaultValue: 5432
+    },
+    'features.auth.enabled': {
+      type: 'boolean',
+      description: 'Whether authentication is enabled',
+      defaultValue: true
+    }
+  }
+})
+```
+
+### Custom Type Naming
+
+```typescript
+propertyPathsToTypes({
+  configFiles: ['./src/types/app.json'],
+  rootTypeNames: {
+    './src/types/app.json': 'ApplicationConfig'
+  },
+  typePrefix: 'Custom',
+  typeSuffix: 'Type'
+})
+```
+
+### Disable JSDoc Comments
+
+```typescript
+propertyPathsToTypes({
+  configFiles: ['./src/types/app.json'],
+  generateComments: false
+})
+```
+
+## Generated File Structure
+
+```
+src/
+├── types/
+│   ├── app.json          # Configuration file
+│   ├── api.json          # Configuration file
+│   └── generated/        # Auto-generated type files
+│       ├── app.ts
+│       └── api.ts
+```
+
+## Example Output
+
+**Generated app.ts**
+```typescript
+// Auto-generated type definitions - Do not edit manually
+// Generated by vite-plugin-property-paths-to-types
+// https://github.com/your-username/vite-plugin-property-paths-to-types
+
+/** app object type */
+export interface App {
+  /** Application name */
+  name: string;
+  version: string;
+}
+
+/** database.credentials object type */
+export interface DatabaseCredentials {
+  username: string;
+  password: string;
+}
+
+/** database object type */
+export interface Database {
+  host: string;
+  /** Database port */
+  port: number;
+  credentials: DatabaseCredentials;
+}
+
+/** Root object type */
+export interface AppConfig {
+  app: App;
+  database: Database;
+}
+```
+
+## License
+
+MIT
+
+## Contributing
+
+Issues and Pull Requests are welcome!
+
+## Changelog
+
+### v1.0.0
+- Initial release
+- Multi-file configuration support
+- Automatic nested type generation
+- JSDoc comment support
