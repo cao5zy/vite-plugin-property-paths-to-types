@@ -1,5 +1,20 @@
 import { TypeDefinition, PropertyInfo, TypeConfig, PropertyPathsPluginOptions } from '../types.js';
 
+/**
+ * 纯函数：从属性路径生成类型名称
+ */
+export function generateTypeNameFromPath(path: string, typePrefix: string = '', typeSuffix: string = ''): string {
+  if (!path) {
+    return `${typePrefix}${typeSuffix}`;
+  }
+  
+  const segments = path.split('.');
+  const lastSegment = segments[segments.length - 1]!;
+  const baseName = lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
+  
+  return `${typePrefix}${baseName}${typeSuffix}`;
+}
+
 export class TypeGenerator {
   private typeMap = new Map<string, TypeDefinition>();
   private propertyInfo: Record<string, PropertyInfo>;
@@ -164,12 +179,7 @@ export class TypeGenerator {
    * 生成类型名称
    */
   private generateTypeName(path: string): string {
-    const segments = path.split('.');
-    const baseName = segments.map(segment => 
-      segment.charAt(0).toUpperCase() + segment.slice(1)
-    ).join('');
-    
-    return `${this.typePrefix}${baseName}${this.typeSuffix}`;
+    return generateTypeNameFromPath(path, this.typePrefix, this.typeSuffix);
   }
 
   /**
