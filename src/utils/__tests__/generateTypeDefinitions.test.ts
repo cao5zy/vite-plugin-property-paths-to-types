@@ -26,10 +26,8 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       expect(typeDefs).toHaveLength(1);
       expect(typeDefs[0]!.name).toBe('User');
       expect(typeDefs[0]!.isRoot).toBe(true);
-      expect(typeDefs[0]!.properties).toEqual({
-        name: 'string',
-        age: 'number'
-      });
+      expect(typeDefs[0]!.properties.name!.type).toBe('string');
+      expect(typeDefs[0]!.properties.age!.type).toBe('number');
     });
 
     it('应该为嵌套对象生成多个类型定义', () => {
@@ -54,9 +52,9 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       expect(userType).toBeDefined();
       expect(profileType).toBeDefined();
 
-      expect(rootType!.properties.user).toBe(userType);
-      expect(userType!.properties.profile).toBe(profileType);
-      expect(profileType!.properties.avatar).toBe('string');
+      expect(rootType!.properties.user!.type).toBe(userType);
+      expect(userType!.properties.profile!.type).toBe(profileType);
+      expect(profileType!.properties.avatar!.type).toBe('string');
     });
   });
 
@@ -82,7 +80,7 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       const typeDefs = generator.generateTypeDefinitions(config, 'Config', 'config.ts');
 
       const userType = typeDefs.find(t => t.name === 'User')!;
-      expect(userType.properties.email).toBe('Email');
+      expect(userType.properties.email!.type).toBe('Email');
     });
   });
 
@@ -136,7 +134,7 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       const typeDefs = generator.generateTypeDefinitions(config, 'Config', 'config.ts');
       const rootType = typeDefs.find(t => t.isRoot)!;
 
-      expect(rootType.properties.nullProp).toBe(null);
+      expect(rootType.properties.nullProp!.type).toBe(null);
     });
 
     it('应该为每个类型定义设置正确的文件名', () => {
@@ -153,9 +151,28 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
         expect(type.fileName).toBe(fileName);
       });
     });
+
+    it('生成可以为空的属性', () => {
+      const config1: TypeConfig = {
+        "user?": {
+          "name?": 'string'
+        }
+      };
+
+      const typeDefs1 = generator.generateTypeDefinitions(config1, 'Config1', 'file1.ts');
+      const code = generator.generateTypeScriptCode(typeDefs1);
+
+      expect(typeDefs1).toHaveLength(2);
+      expect(typeDefs1[0]!.name).toBe('Config1');
+      expect(typeDefs1[1]!.name).toBe('User');
+      expect(code).toContain('export interface User {');
+      expect(code).toContain('user?:'); 
+      expect(code).toContain('name?:'); 
+    });
   });
 
   describe('类型映射管理', () => {
+
     it('应该在每次调用时清空类型映射', () => {
       const config1: TypeConfig = {
         user: {
@@ -215,11 +232,12 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       const userType = typeDefs.find(t => t.name === 'User')!;
 
       // 根类型中的 users 属性应该是 User[]
-      expect(rootType.properties.users).toBe('User[]');
+      expect(rootType.properties.users!.isArray).toBe(true);
+      expect(rootType.properties.users!.type).toBe(userType);
       
       // User 类型应该包含正确的属性
-      expect(userType.properties.name).toBe('string');
-      expect(userType.properties.email).toBe('string');
+      expect(userType.properties.name!.type).toBe('string');
+      expect(userType.properties.email!.type).toBe('string');
     });
 
     it('应该处理嵌套数组类型', () => {
@@ -237,9 +255,11 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       const userType = typeDefs.find(t => t.name === 'User')!;
       const tagType = typeDefs.find(t => t.name === 'Tag')!;
 
-      expect(rootType.properties.users).toBe('User[]');
-      expect(userType.properties.tags).toBe('Tag[]');
-      expect(tagType.properties.name).toBe('string');
+      expect(rootType.properties.users!.isArray).toBe(true);
+      expect(rootType.properties.users!.type).toBe(userType);
+      expect(userType.properties.tags!.isArray).toBe(true);
+      expect(userType.properties.tags!.type).toBe(tagType);
+      expect(tagType.properties.name!.type).toBe('string');
     });
 
     it('应该生成正确的 TypeScript 代码', () => {
@@ -256,6 +276,27 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       expect(code).toContain('export interface User {');
       expect(code).toContain('export interface AppConfig {');
       expect(code).toContain('users: User[];');
+    });
+
+    it('应该正确存储 isArray 和 isOptional 信息', () => {
+      const config: TypeConfig = {
+        "users?[]": {
+          "name?": 'string'
+        }
+      };
+      // todo: 请修复{name:generator}中的代码，使其能够实现同时是isArray和isOptional的情况
+      // <file name="generator" src="src/utils/generator.ts" action="read"/>
+      // <file name="types" src="src/types.ts" action="read"/>
+
+      const typeDefs = generator.generateTypeDefinitions(config, 'Config', 'config.ts');
+
+      const rootType = typeDefs.find(t => t.isRoot)!;
+      const userType = typeDefs.find(t => t.name === 'User')!;
+
+      expect(rootType.properties.users!.isArray).toBe(true);
+      expect(rootType.properties.users!.isOptional).toBe(true);
+      expect(userType.properties.name!.isArray).toBe(false);
+      expect(userType.properties.name!.isOptional).toBe(true);
     });
   });
 });

@@ -56,9 +56,9 @@ export default defineConfig({
   "app": {
     "name": "string",
     "version": "string",
-    "components[]": {
+    "components?[]": {
       "id": "string",
-      "label": "string"
+      "label?": "string"
     }
   },
   "database": {
@@ -267,12 +267,12 @@ export interface App {
   /** Application name */
   name: string;
   version: string;
-  components: Component[]
+  components?: Component[]
 }
 
 export interface Component {
-  "id" string;
-  "label": string;
+  id string;
+  label?: string;
 }
 
 /** database.credentials object type */

@@ -1,9 +1,15 @@
 export interface TypeDefinition {
   name: string;
-  properties: Record<string, string | TypeDefinition>;
+  properties: Record<string, PropertyDefinition>;
   isRoot?: boolean;
   description?: string;
   fileName?: string;
+}
+
+export interface PropertyDefinition {
+  type: string | TypeDefinition;
+  isArray?: boolean;
+  isOptional?: boolean;
 }
 
 export interface PropertyInfo {

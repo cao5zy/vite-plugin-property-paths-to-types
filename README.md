@@ -56,9 +56,9 @@ export default defineConfig({
   "app": {
     "name": "string",
     "version": "string",
-    "components[]": {
+    "components?[]": {
       "id": "string",
-      "label": "string"
+      "label?": "string"
     }
   },
   "database": {
@@ -268,13 +268,13 @@ export interface App {
   /** 应用名称 */
   name: string;
   version: string;
-  components: Component[]
+  components?: Component[]
 }
 
 /** component 对象类型 */
 export interface Component {
-  "id" string;
-  "label": string;
+  id string;
+  label?: string;
 }
 
 /** database.credentials 对象类型 */

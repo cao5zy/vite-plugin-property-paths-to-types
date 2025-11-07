@@ -1,4 +1,4 @@
-import { TypeDefinition, PropertyInfo, TypeConfig, PropertyPathsPluginOptions } from '../types.js';
+import { TypeDefinition, PropertyInfo, TypeConfig, PropertyPathsPluginOptions, PropertyDefinition } from '../types.js';
 
 /**
  * 将英文复数形式转换为单数形式
@@ -19,9 +19,30 @@ function toSingular(word: string): string {
     return word.slice(0, -1);
   }
   if (word.endsWith('s') && !word.endsWith('ss') && word.length > 1) {
-    return word.slice(0, -1);
+      return word.slice(0, -1);
   }
   return word;
+}
+
+/**
+ * 检查属性是否为数组类型
+ */
+function isArrayProperty(name: string): boolean {
+  return name.includes('[]');
+}
+
+/**
+ * 检查属性是否为可选类型
+ */
+function isOptionalProperty(name: string): boolean {
+  return name.includes('?');
+}
+
+/**
+ * 获取属性名称的基础部分（移除类型修饰符）
+ */
+function getBasePropertyName(name: string): string {
+  return name.replace(/\?/g, '').replace(/\[\]/g, '');
 }
 
 /**
@@ -35,11 +56,14 @@ export function generateTypeNameFromPath(path: string, typePrefix: string = '', 
   const segments = path.split('.');
   const lastSegment = segments[segments.length - 1]!;
   
-  // 只有当属性名称以`[]`结尾时才进行复数转单数处理
-  const singularSegment = isArrayType ? toSingular(lastSegment) : lastSegment;
-  const baseName = singularSegment.charAt(0).toUpperCase() + singularSegment.slice(1);
+  // 获取基础属性名称
+  const baseName = getBasePropertyName(lastSegment);
   
-  return `${typePrefix}${baseName}${typeSuffix}`;
+  // 只有当属性名称以`[]`结尾时才进行复数转单数处理
+  const singularSegment = isArrayType ? toSingular(baseName) : baseName;
+  const capitalizedName = singularSegment.charAt(0).toUpperCase() + singularSegment.slice(1);
+  
+  return `${typePrefix}${capitalizedName}${typeSuffix}`;
 }
 
 export class TypeGenerator {
@@ -83,34 +107,47 @@ export class TypeGenerator {
     for (const [key, value] of Object.entries(config)) {
       const currentPath = parentPath ? `${parentPath}.${key}` : key;
 
-      // 检查是否是数组类型（属性名以 [] 结尾）
-      const isArrayType = key.endsWith('[]');
-      const cleanKey = isArrayType ? key.slice(0, -2) : key;
-      const cleanPath = parentPath ? `${parentPath}.${cleanKey}` : cleanKey;
+      // 分离关注点：分别处理类型修饰符
+      const isArray = isArrayProperty(key);
+      const isOptional = isOptionalProperty(key);
+      const baseKey = getBasePropertyName(key);
+      const basePath = parentPath ? `${parentPath}.${baseKey}` : baseKey;
 
       if (typeof value === 'object' && value !== null) {
         // 创建嵌套类型
-        const typeName = this.generateTypeName(cleanPath, isArrayType);
+        const typeName = this.generateTypeName(basePath, isArray);
         
         if (!this.typeMap.has(typeName)) {
           const newType: TypeDefinition = {
             name: typeName,
             properties: {},
-            description: `${cleanPath} 对象类型`,
+            description: `${basePath} 对象类型`,
             fileName: parentType.fileName
           };
           this.typeMap.set(typeName, newType);
           
-          // 如果是数组类型，包装为数组
-          parentType.properties[cleanKey] = isArrayType ? `${typeName}[]` : newType;
+          // 创建属性定义，包含完整的元数据
+          const propertyDef: PropertyDefinition = {
+            type: newType,
+            isArray,
+            isOptional
+          };
+
+          parentType.properties[baseKey] = propertyDef;
           
           // 递归处理嵌套对象
-          this.processConfigObject(value, newType, cleanPath);
+          this.processConfigObject(value, newType, basePath);
         } else {
           const existingType = this.typeMap.get(typeName);
           if (existingType) {
-            // 如果是数组类型，包装为数组
-            parentType.properties[cleanKey] = isArrayType ? `${typeName}[]` : existingType;
+            // 创建属性定义，包含完整的元数据
+            const propertyDef: PropertyDefinition = {
+              type: existingType,
+              isArray,
+              isOptional
+            };
+            
+            parentType.properties[baseKey] = propertyDef;
           }
         }
       } else {
@@ -118,8 +155,14 @@ export class TypeGenerator {
         const info = this.propertyInfo[currentPath];
         const typeName = info?.type || value;
         
-        // 如果是数组类型，包装为数组
-        parentType.properties[cleanKey] = isArrayType ? `${typeName}[]` : typeName;
+        // 创建属性定义，包含完整的元数据
+        const propertyDef: PropertyDefinition = {
+          type: typeName,
+          isArray,
+          isOptional
+        };
+        
+        parentType.properties[baseKey] = propertyDef;
       }
     }
   }
@@ -143,8 +186,8 @@ export class TypeGenerator {
         }
         lines.push(`export interface ${type.name} {`);
         
-        Object.entries(type.properties).forEach(([key, value]) => {
-          const typeName = typeof value === 'string' ? value : value.name;
+        Object.entries(type.properties).forEach(([key, propertyDef]) => {
+          const typeName = this.getTypeNameFromPropertyDefinition(propertyDef);
           const propertyPath = this.findPropertyPath(type, key);
           const info = this.propertyInfo[propertyPath];
           
@@ -163,8 +206,7 @@ export class TypeGenerator {
             }
           }
           
-          const required = info?.required !== false;
-          const propertyName = required ? key : `${key}?`;
+          const propertyName = propertyDef.isOptional ? `${key}?` : key;
           lines.push(`  ${propertyName}: ${typeName};`);
         });
         
@@ -179,35 +221,46 @@ export class TypeGenerator {
       }
       lines.push(`export interface ${rootType.name} {`);
       
-      Object.entries(rootType.properties).forEach(([key, value]) => {
-        const typeName = typeof value === 'string' ? value : value.name;
-        const propertyPath = key;
-        const info = this.propertyInfo[propertyPath];
-        
-        if (this.generateComments) {
-          const commentLines: string[] = [];
-          if (info?.description) {
-            commentLines.push(` * ${info.description}`);
+      Object.entries(rootType.properties).forEach(([key, propertyDef]) => {
+          const typeName = this.getTypeNameFromPropertyDefinition(propertyDef);
+          const propertyPath = key;
+          const info = this.propertyInfo[propertyPath];
+          
+          if (this.generateComments) {
+            const commentLines: string[] = [];
+            if (info?.description) {
+              commentLines.push(` * ${info.description}`);
+            }
+            if (info?.defaultValue !== undefined) {
+              commentLines.push(` * @default ${JSON.stringify(info.defaultValue)}`);
+            }
+            if (commentLines.length > 0) {
+              lines.push('  /**');
+              lines.push(...commentLines);
+              lines.push('   */');
+            }
           }
-          if (info?.defaultValue !== undefined) {
-            commentLines.push(` * @default ${JSON.stringify(info.defaultValue)}`);
-          }
-          if (commentLines.length > 0) {
-            lines.push('  /**');
-            lines.push(...commentLines);
-            lines.push('   */');
-          }
-        }
-        
-        const required = info?.required !== false;
-        const propertyName = required ? key : `${key}?`;
+          
+          const propertyName = propertyDef.isOptional ? `${key}?` : key;
           lines.push(`  ${propertyName}: ${typeName};`);
-      });
+        });
       
       lines.push('}');
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * 从属性定义获取类型名称
+   */
+  private getTypeNameFromPropertyDefinition(propertyDef: PropertyDefinition): string {
+    const baseType = typeof propertyDef.type === 'string' ? propertyDef.type : propertyDef.type.name;
+    let result = baseType;
+    if (propertyDef.isArray) {
+      result = `${baseType}[]`;
+    }
+    return result;
   }
 
   /**
