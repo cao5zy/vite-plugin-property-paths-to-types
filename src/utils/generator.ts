@@ -1,16 +1,43 @@
 import { TypeDefinition, PropertyInfo, TypeConfig, PropertyPathsPluginOptions } from '../types.js';
 
 /**
+ * 将英文复数形式转换为单数形式
+ */
+function toSingular(word: string): string {
+  // 常见的复数转单数规则
+  if (word.endsWith('ies') && word.length > 3) {
+    return word.slice(0, -3) + 'y';
+  }
+  if (word.endsWith('es') && word.length > 2) {
+    // 检查是否是特定的复数形式
+    const specialCases = ['ches', 'shes', 'xes', 'ses'];
+    for (const suffix of specialCases) {
+      if (word.endsWith(suffix)) {
+        return word.slice(0, -2);
+      }
+    }
+    return word.slice(0, -1);
+  }
+  if (word.endsWith('s') && !word.endsWith('ss') && word.length > 1) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+/**
  * 纯函数：从属性路径生成类型名称
  */
-export function generateTypeNameFromPath(path: string, typePrefix: string = '', typeSuffix: string = ''): string {
+export function generateTypeNameFromPath(path: string, typePrefix: string = '', typeSuffix: string = '', isArrayType: boolean = false): string {
   if (!path) {
     return `${typePrefix}${typeSuffix}`;
   }
   
   const segments = path.split('.');
   const lastSegment = segments[segments.length - 1]!;
-  const baseName = lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
+  
+  // 只有当属性名称以`[]`结尾时才进行复数转单数处理
+  const singularSegment = isArrayType ? toSingular(lastSegment) : lastSegment;
+  const baseName = singularSegment.charAt(0).toUpperCase() + singularSegment.slice(1);
   
   return `${typePrefix}${baseName}${typeSuffix}`;
 }
@@ -21,14 +48,12 @@ export class TypeGenerator {
   private generateComments: boolean;
   private typePrefix: string;
   private typeSuffix: string;
-  private defaultPropertyType: string;
 
   constructor(private options: PropertyPathsPluginOptions) {
     this.propertyInfo = options.propertyInfo || {};
     this.generateComments = options.generateComments !== false;
     this.typePrefix = options.typePrefix || '';
     this.typeSuffix = options.typeSuffix || '';
-    this.defaultPropertyType = options.defaultPropertyType || 'string';
   }
 
   /**
@@ -58,33 +83,43 @@ export class TypeGenerator {
     for (const [key, value] of Object.entries(config)) {
       const currentPath = parentPath ? `${parentPath}.${key}` : key;
 
+      // 检查是否是数组类型（属性名以 [] 结尾）
+      const isArrayType = key.endsWith('[]');
+      const cleanKey = isArrayType ? key.slice(0, -2) : key;
+      const cleanPath = parentPath ? `${parentPath}.${cleanKey}` : cleanKey;
+
       if (typeof value === 'object' && value !== null) {
         // 创建嵌套类型
-        const typeName = this.generateTypeName(currentPath);
+        const typeName = this.generateTypeName(cleanPath, isArrayType);
         
         if (!this.typeMap.has(typeName)) {
           const newType: TypeDefinition = {
             name: typeName,
             properties: {},
-            description: `${currentPath} 对象类型`,
+            description: `${cleanPath} 对象类型`,
             fileName: parentType.fileName
           };
           this.typeMap.set(typeName, newType);
-          parentType.properties[key] = newType;
+          
+          // 如果是数组类型，包装为数组
+          parentType.properties[cleanKey] = isArrayType ? `${typeName}[]` : newType;
           
           // 递归处理嵌套对象
-          this.processConfigObject(value, newType, currentPath);
+          this.processConfigObject(value, newType, cleanPath);
         } else {
           const existingType = this.typeMap.get(typeName);
           if (existingType) {
-            parentType.properties[key] = existingType;
+            // 如果是数组类型，包装为数组
+            parentType.properties[cleanKey] = isArrayType ? `${typeName}[]` : existingType;
           }
         }
       } else {
         // 叶子节点，直接设置类型
         const info = this.propertyInfo[currentPath];
         const typeName = info?.type || value;
-        parentType.properties[key] = typeName;
+        
+        // 如果是数组类型，包装为数组
+        parentType.properties[cleanKey] = isArrayType ? `${typeName}[]` : typeName;
       }
     }
   }
@@ -166,7 +201,7 @@ export class TypeGenerator {
         
         const required = info?.required !== false;
         const propertyName = required ? key : `${key}?`;
-        lines.push(`  ${propertyName}: ${typeName};`);
+          lines.push(`  ${propertyName}: ${typeName};`);
       });
       
       lines.push('}');
@@ -178,8 +213,8 @@ export class TypeGenerator {
   /**
    * 生成类型名称
    */
-  private generateTypeName(path: string): string {
-    return generateTypeNameFromPath(path, this.typePrefix, this.typeSuffix);
+  private generateTypeName(path: string, isArrayType: boolean = false): string {
+    return generateTypeNameFromPath(path, this.typePrefix, this.typeSuffix, isArrayType);
   }
 
   /**

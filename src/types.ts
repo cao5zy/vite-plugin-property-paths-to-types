@@ -51,11 +51,6 @@ export interface PropertyPathsPluginOptions {
    */
   typeSuffix?: string;
   /**
-   * 默认属性类型
-   * @default 'string'
-   */
-  defaultPropertyType?: string;
-  /**
    * 根类型名称映射，key为文件名，value为类型名
    */
   rootTypeNames?: Record<string, string>;

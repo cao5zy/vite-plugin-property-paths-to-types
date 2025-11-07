@@ -55,7 +55,11 @@ export default defineConfig({
 {
   "app": {
     "name": "string",
-    "version": "string"
+    "version": "string",
+    "components[]": {
+      "id": "string",
+      "label": "string"
+    }
   },
   "database": {
     "host": "string",
@@ -92,7 +96,17 @@ import type { ApiConfig } from './types/generated/api';
 const appConfig: AppConfig = {
   app: {
     name: "My App",
-    version: "1.0.0"
+    version: "1.0.0",
+    components: [
+      {
+        "id": "x-1",
+        "label" "CZ-1"
+      },
+      {
+        "id": "x-2",
+        "label": "CZ-2"
+      }
+    ]
   },
   database: {
     host: "localhost",
@@ -253,6 +267,12 @@ export interface App {
   /** Application name */
   name: string;
   version: string;
+  components: Component[]
+}
+
+export interface Component {
+  "id" string;
+  "label": string;
 }
 
 /** database.credentials object type */
