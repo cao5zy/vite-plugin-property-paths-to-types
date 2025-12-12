@@ -56,6 +56,28 @@ describe('TypeGenerator - generateTypeDefinitions', () => {
       expect(userType!.properties.profile!.type).toBe(profileType);
       expect(profileType!.properties.avatar!.type).toBe('string');
     });
+
+    it('生成简单的枚举类型', () => {
+      const config: TypeConfig = {
+        shape: {
+          name: 'string',
+          alignment: 'left|center|right'
+        }
+      };
+
+      const typeDefs = generator.generateTypeDefinitions(config, 'AppConfig', 'app.ts');
+
+      expect(typeDefs).toHaveLength(2);
+      
+      const rootType = typeDefs.find(t => t.isRoot);
+      const shapeType = typeDefs.find(t => t.name === 'Shape');
+
+      expect(rootType).toBeDefined();
+      expect(shapeType).toBeDefined();
+
+      expect(rootType!.properties.shape!.type).toBe(shapeType);
+      expect(shapeType!.properties.alignment!.type).toBe("'left' | 'center' | 'right'");
+    });
   });
 
   describe('属性信息配置测试', () => {

@@ -46,6 +46,26 @@ function getBasePropertyName(name: string): string {
 }
 
 /**
+ * 处理枚举类型字符串，将 "a|b|c" 转换为 "'a' | 'b' | 'c'"
+ */
+function processEnumType(typeString: string): string {
+  if (typeof typeString !== 'string') {
+    return typeString;
+  }
+  
+  // 检查是否是枚举格式（包含 | 且不包含空格，且不是已经处理过的带引号的格式）
+  if (typeString.includes('|') && !typeString.includes("'") && !typeString.includes('"')) {
+    const enumValues = typeString.split('|').map(value => value.trim());
+    // 确保所有值都不是空的，并且看起来像字符串字面量（不是数字、boolean等）
+    if (enumValues.every(value => value && !/^\d+$/.test(value) && value !== 'true' && value !== 'false')) {
+      return enumValues.map(value => `'${value}'`).join(' | ');
+    }
+  }
+  
+  return typeString;
+}
+
+/**
  * 纯函数：从属性路径生成类型名称
  */
 export function generateTypeNameFromPath(path: string, typePrefix: string = '', typeSuffix: string = '', isArrayType: boolean = false): string {
@@ -153,7 +173,12 @@ export class TypeGenerator {
       } else {
         // 叶子节点，直接设置类型
         const info = this.propertyInfo[currentPath];
-        const typeName = info?.type || value;
+        let typeName = info?.type || value;
+        
+        // 处理枚举类型
+        if (typeof typeName === 'string') {
+          typeName = processEnumType(typeName);
+        }
         
         // 创建属性定义，包含完整的元数据
         const propertyDef: PropertyDefinition = {
